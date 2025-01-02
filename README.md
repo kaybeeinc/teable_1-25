@@ -5,7 +5,7 @@
       <img alt="teable logo" height="150" src="static/assets/images/teable-vertical-light.png">
     </picture>
   </h1>
-  <h3 align="center"><strong>Manage Your Data & Connect Your Team</strong></h3>
+  <h3 align="center"><strong>(Use for Zap data to Share) Manage Your Data & Connect Your Team</strong></h3>
   <p>Teable uses a simple, spreadsheet-like interface to create powerful database applications. Collaborate with your team in real-time, and scale to millions of rows
   <p>Try out Teable using our hosted version at <a href="https://teable.io">teable.io</a></p>
 </div>
