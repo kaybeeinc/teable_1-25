@@ -19,7 +19,7 @@ import {
   checkFieldValidationEnabled,
 } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, wrapWithValidationErrorHandler } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { keyBy, sortBy } from 'lodash';
@@ -302,6 +302,13 @@ export class FieldService implements IReadonlyAdapterService {
 
     let result = fieldsPlain.map(rawField2FieldObj);
 
+    // filter by projection
+    if (query?.projection) {
+      const fieldIds = query.projection;
+      const fieldMap = keyBy(result, 'id');
+      return fieldIds.map((fieldId) => fieldMap[fieldId]).filter(Boolean);
+    }
+
     /**
      * filter by query
      * filterHidden depends on viewId so only judge viewId
@@ -324,14 +331,9 @@ export class FieldService implements IReadonlyAdapterService {
       if (query?.filterHidden) {
         result = result.filter((field) => isNotHiddenField(field.id, view));
       }
-      result = sortBy(result, (field) => {
+      return sortBy(result, (field) => {
         return view?.columnMeta[field.id].order;
       });
-    }
-
-    if (query?.excludeFieldIds) {
-      const ids = query?.excludeFieldIds;
-      result = result.filter((field) => !ids.includes(field.id));
     }
 
     return result;
@@ -534,7 +536,9 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     if (key === 'dbFieldType') {
-      await this.alterTableModifyFieldType(fieldId, newValue as DbFieldType);
+      await wrapWithValidationErrorHandler(() =>
+        this.alterTableModifyFieldType(fieldId, newValue as DbFieldType)
+      );
     }
 
     if (key === 'dbFieldName') {
@@ -542,8 +546,9 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     if (key === 'unique' || key === 'notNull') {
-      console.log('alterTableModifyFieldValidation', fieldId, { [key]: newValue });
-      await this.alterTableModifyFieldValidation(fieldId, key, newValue as boolean | undefined);
+      await wrapWithValidationErrorHandler(() =>
+        this.alterTableModifyFieldValidation(fieldId, key, newValue as boolean | undefined)
+      );
     }
 
     return { [key]: newValue ?? null };

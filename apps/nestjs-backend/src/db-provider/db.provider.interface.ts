@@ -1,6 +1,6 @@
-import type { DriverClient, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
+import type { DriverClient, FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
-import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
+import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { DateFieldDto } from '../features/field/model/field-dto/date-field.dto';
@@ -9,6 +9,8 @@ import type { IAggregationQueryInterface } from './aggregation-query/aggregation
 import type { BaseQueryAbstract } from './base-query/abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
+import type { IndexBuilderAbstract } from './index-query/index-abstract-builder';
+import type { IntegrityQueryAbstract } from './integrity-query/abstract';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 
 export type IFilterQueryExtra = {
@@ -72,6 +74,8 @@ export interface IDbProvider {
     prisma: Prisma.TransactionClient
   ): Promise<boolean>;
 
+  checkTableExist(tableName: string): string;
+
   dropColumnAndIndex(tableName: string, columnName: string, indexName: string): string[];
 
   modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[];
@@ -130,8 +134,9 @@ export interface IDbProvider {
 
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string?, boolean?]
+    searchFields: IFieldInstance[],
+    tableIndex: TableIndex[],
+    search: [string, string?, boolean?]
   ): Knex.QueryBuilder;
 
   searchIndexQuery(
@@ -139,6 +144,7 @@ export interface IDbProvider {
     dbTableName: string,
     searchField: IFieldInstance[],
     searchIndexRo: Partial<ISearchIndexByQueryRo>,
+    tableIndex: TableIndex[],
     baseSortIndex?: string,
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
     setSortQuery?: (qb: Knex.QueryBuilder) => void
@@ -147,8 +153,11 @@ export interface IDbProvider {
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string
+    search: [string, string?, boolean?],
+    tableIndex: TableIndex[]
   ): Knex.QueryBuilder;
+
+  searchIndex(): IndexBuilderAbstract;
 
   shareFilterCollaboratorsQuery(
     originQueryBuilder: Knex.QueryBuilder,
@@ -158,6 +167,8 @@ export interface IDbProvider {
 
   baseQuery(): BaseQueryAbstract;
 
+  integrityQuery(): IntegrityQueryAbstract;
+
   calendarDailyCollectionQuery(
     qb: Knex.QueryBuilder,
     props: ICalendarDailyCollectionQueryProps
@@ -165,5 +176,7 @@ export interface IDbProvider {
 
   lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string;
 
-  optionsQuery(optionsKey: string, value: string): string;
+  optionsQuery(type: FieldType, optionsKey: string, value: string): string;
+
+  searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder;
 }

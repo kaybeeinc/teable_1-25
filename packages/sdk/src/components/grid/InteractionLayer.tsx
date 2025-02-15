@@ -292,9 +292,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const { onAutoScroll, onAutoScrollStop } = useAutoScroll({
     coordInstance,
-    isSelecting,
-    isDragging,
-    dragType,
     scrollBy,
   });
 
@@ -606,7 +603,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setMouseState(() => mouseState);
     setCursorStyle(mouseState.type);
     onCellPosition(mouseState);
-    onAutoScroll(mouseState);
+    if (isSelecting) onAutoScroll(mouseState);
+    if (isDragging) onAutoScroll(mouseState, dragType);
     onSelectionChange(mouseState);
     onColumnResizeChange(mouseState, (newWidth, columnIndex) => {
       onColumnResize?.(columns[columnIndex], newWidth, columnIndex);
@@ -703,6 +701,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     >
       <div
         ref={stageRef}
+        data-t-grid-stage
         className="size-full"
         onClick={onSmartClick}
         onMouseDown={onMouseDown}

@@ -34,6 +34,16 @@
         "label": "API 接口",
         "restfulApi": "Restful API",
         "databaseConnection": "数据库连接"
+      },
+      "personalView": {
+        "personal": "个人",
+        "collaborative": "协同",
+        "dialog": {
+          "title": "切换到视图协同模式",
+          "description": "切换到视图协同模式后，视图的个人配置将同步给所有人，请确认是否同步",
+          "cancelText": "不同步",
+          "confirmText": "同步"
+        }
       }
     }
   },
@@ -179,6 +189,7 @@
       "previewDependenciesGraph": "预览依赖关系图",
       "areYouSurePerformIt": "确定要执行此操作吗？",
       "addDescription": "添加描述",
+      "dbFieldName": "物理字段名",
       "description": "描述",
       "descriptionPlaceholder": "描述这个字段（可选）",
       "type": "字段类型",
@@ -231,7 +242,7 @@
       "enableValidateFieldUnique": "禁止重复值",
       "enableValidateFieldNotNull": "禁止空值",
       "knowMore": "了解更多",
-      "linkFieldKnowMoreLink": "https://help.teable.cn/ji-ben-gong-neng/zi-duan/gao-ji-zi-duan/guan-lian",
+      "linkFieldKnowMoreLink": "https://help.teable.cn/zh/basic/field/advanced/link",
       "filterByView": "从视图筛选记录",
       "filter": "筛选记录",
       "hideFields": "隐藏字段",
@@ -274,8 +285,7 @@
     "deleteConfirm": "你确定要删除 \"{{tableName}}\" 表吗？",
     "dbTableName": "物理数据库中的表名",
     "schemaName": "物理数据库中的模式(Schema)名",
-    "tableInfo": "表信息",
-    "tableInfoDetail": "当前表的基础属性",
+    "baseInfo": "数据库信息",
     "typeOfDatabase": "数据库类型",
     "descriptionForTable": "表的描述",
     "nameForTable": "表的名称",
@@ -297,12 +307,32 @@
       "clearSuccessful": "清除成功",
       "deleting": "正在删除...",
       "deleteSuccessful": "删除成功",
-      "pasteFileFailed": "文件只能粘贴到附件字段中"
+      "pasteFileFailed": "文件只能粘贴到附件字段中",
+      "copyError": {
+        "noFocus": "请保持页面激活，不要切换窗口"
+      }
     },
     "graph": {
       "tableLabel": "表格名称",
       "effectCells": "影响单元格数",
       "estimatedTime": "预计完成"
+    },
+    "integrity": {
+      "check": "检查",
+      "title": "检查完整性",
+      "loading": "检查完整性...",
+      "allGood": "一切正常！",
+      "fixIssues": "修复问题"
+    },
+    "index": {
+      "description": "索引可以显著提升搜索性能，特别是当数据量较大(超过 {{rowCount}} 行)，缺点是写入操作略微变慢，如果经常进行搜索操作或数据量较大，建议开启索引。",
+      "repair": "修复",
+      "repairTip": "检测到索引异常，可能导致搜索性能下降，建议点击修复按钮修复索引",
+      "enableIndexTip": "您正在创建索引，创建索引的时间取决于表的大小，创建过程中，表的读写性能可能会受到一定影响，请耐心等待。",
+      "globalSearchTip": "对所有字段模糊搜索，不支持日期和勾选字段",
+      "autoIndexTip": "检测到你的表超过 {{rowCount}} 行，建议开启索引以提升搜索性能，开启索引会略微降低写入速度。创建索引期间可能会影响表的读写性能，请耐心等待。",
+      "enableIndex": "开启",
+      "keepAsIs": "暂不开启"
     }
   },
   "import": {
@@ -460,7 +490,8 @@
     "description": "你可以通过数据库连接来直接访问数据库",
     "noPermission": "你没有权限访问数据库连接",
     "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
-    "helpLink": "https://help.teable.cn/gao-dai-ma-kai-fa/shu-ju-ku-lian-jie"
+    "createFailed": "请确保环境变量 PUBLIC_DATABASE_PROXY 设置正确",
+    "helpLink": "https://help.teable.cn/zh/deploy/database-connection"
   },
   "view": {
     "addRecord": "添加记录",
@@ -470,7 +501,10 @@
     "action": {
       "rename": "重命名",
       "duplicate": "复制视图",
-      "delete": "删除视图"
+      "delete": "删除视图",
+      "lock": "锁定视图",
+      "unlock": "解锁视图",
+      "enable": "启用"
     },
     "category": {
       "table": "表格视图",
@@ -487,6 +521,9 @@
     "search": {
       "field_one": "{{name}}",
       "field_other": "字段({{length}})"
+    },
+    "locked": {
+      "tip": "当前视图已被锁定，你可以启用个人模式来编辑视图选项，修改将仅对你自己生效"
     }
   },
   "lastModifiedTime": "修改时间",
@@ -499,5 +536,9 @@
     "title": "表格回收站",
     "resourceType": "资源类型",
     "deletedResource": "已删除资源"
+  },
+  "plugin": {
+    "recent": "最近使用",
+    "more": "探索更多..."
   }
 }

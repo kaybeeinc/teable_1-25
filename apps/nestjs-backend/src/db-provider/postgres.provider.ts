@@ -1,9 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
+import type { FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
-import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
+import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -22,8 +22,14 @@ import type { IFilterQueryInterface } from './filter-query/filter-query.interfac
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQueryPostgres } from './group-query/group-query.postgres';
+import type { IntegrityQueryAbstract } from './integrity-query/abstract';
+import { IntegrityQueryPostgres } from './integrity-query/integrity-query.postgres';
 import { SearchQueryAbstract } from './search-query/abstract';
-import { SearchQueryBuilder, SearchQueryPostgres } from './search-query/search-query.postgres';
+import { IndexBuilderPostgres } from './search-query/search-index-builder.postgres';
+import {
+  SearchQueryPostgresBuilder,
+  SearchQueryPostgres,
+} from './search-query/search-query.postgres';
 import { SortQueryPostgres } from './sort-query/postgres/sort-query.postgres';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 
@@ -73,6 +79,16 @@ export class PostgresProvider implements IDbProvider {
       .toQuery();
     const res = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(sql);
     return res[0].exists;
+  }
+
+  checkTableExist(tableName: string): string {
+    const [schemaName, dbTableName] = this.splitTableName(tableName);
+    return this.knex
+      .raw(
+        'SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = ? AND table_name = ?) AS exists',
+        [schemaName, dbTableName]
+      )
+      .toQuery();
   }
 
   renameColumn(tableName: string, oldName: string, newName: string): string[] {
@@ -310,22 +326,31 @@ export class PostgresProvider implements IDbProvider {
 
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string?, boolean?]
+    searchFields: IFieldInstance[],
+    tableIndex: TableIndex[],
+    search: [string, string?, boolean?]
   ) {
-    return SearchQueryAbstract.factory(SearchQueryPostgres, originQueryBuilder, fieldMap, search);
+    return SearchQueryAbstract.appendQueryBuilder(
+      SearchQueryPostgres,
+      originQueryBuilder,
+      searchFields,
+      tableIndex,
+      search
+    );
   }
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string
+    search: [string, string?, boolean?],
+    tableIndex: TableIndex[]
   ) {
     return SearchQueryAbstract.buildSearchCountQuery(
       SearchQueryPostgres,
       originQueryBuilder,
       searchField,
-      searchValue
+      search,
+      tableIndex
     );
   }
 
@@ -334,19 +359,25 @@ export class PostgresProvider implements IDbProvider {
     dbTableName: string,
     searchField: IFieldInstance[],
     searchIndexRo: ISearchIndexByQueryRo,
+    tableIndex: TableIndex[],
     baseSortIndex?: string,
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
     setSortQuery?: (qb: Knex.QueryBuilder) => void
   ) {
-    return new SearchQueryBuilder(
+    return new SearchQueryPostgresBuilder(
       originQueryBuilder,
       dbTableName,
       searchField,
       searchIndexRo,
+      tableIndex,
       baseSortIndex,
       setFilterQuery,
       setSortQuery
     ).getSearchIndexQuery();
+  }
+
+  searchIndex() {
+    return new IndexBuilderPostgres();
   }
 
   shareFilterCollaboratorsQuery(
@@ -367,6 +398,10 @@ export class PostgresProvider implements IDbProvider {
 
   baseQuery(): BaseQueryAbstract {
     return new BaseQueryPostgres(this.knex);
+  }
+
+  integrityQuery(): IntegrityQueryAbstract {
+    return new IntegrityQueryPostgres(this.knex);
   }
 
   calendarDailyCollectionQuery(
@@ -424,20 +459,51 @@ export class PostgresProvider implements IDbProvider {
   lookupOptionsQuery(optionsKey: keyof ILookupOptionsVo, value: string): string {
     return this.knex('field')
       .select({
+        tableId: 'table_id',
         id: 'id',
+        type: 'type',
+        name: 'name',
         lookupOptions: 'lookup_options',
       })
+      .whereNull('deleted_time')
       .whereRaw(`lookup_options::json->>'${optionsKey}' = ?`, [value])
       .toQuery();
   }
 
-  optionsQuery(optionsKey: string, value: string): string {
+  optionsQuery(type: FieldType, optionsKey: string, value: string): string {
     return this.knex('field')
       .select({
+        tableId: 'table_id',
         id: 'id',
+        name: 'name',
+        description: 'description',
+        notNull: 'not_null',
+        unique: 'unique',
+        isPrimary: 'is_primary',
+        dbFieldName: 'db_field_name',
+        isComputed: 'is_computed',
+        isPending: 'is_pending',
+        hasError: 'has_error',
+        dbFieldType: 'db_field_type',
+        isMultipleCellValue: 'is_multiple_cell_value',
+        isLookup: 'is_lookup',
+        lookupOptions: 'lookup_options',
+        type: 'type',
         options: 'options',
+        cellValueType: 'cell_value_type',
       })
+      .whereNull('deleted_time')
+      .whereNull('is_lookup')
       .whereRaw(`options::json->>'${optionsKey}' = ?`, [value])
+      .where('type', type)
       .toQuery();
+  }
+
+  searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder {
+    return qb.where((builder) => {
+      search.forEach(([field, value]) => {
+        builder.orWhere(field, 'ilike', `%${value}%`);
+      });
+    });
   }
 }

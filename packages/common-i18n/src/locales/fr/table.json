@@ -32,6 +32,16 @@
         "label": "API",
         "restfulApi": "API Restful",
         "databaseConnection": "Connexion à la base de données"
+      },
+      "personalView": {
+        "personal": "Personnel",
+        "collaborative": "Collaboratif",
+        "dialog": {
+          "title": "Passer en mode collaboratif",
+          "description": "Passer en mode collaboratif, la configuration personnelle de la vue sera synchronisée avec tous, veuillez confirmer si vous souhaitez synchroniser",
+          "cancelText": "Ne synchroniser pas",
+          "confirmText": "Synchroniser"
+        }
       }
     }
   },
@@ -176,6 +186,7 @@
       "previewDependenciesGraph": "Aperçu du graphique des dépendances",
       "areYouSurePerformIt": "Êtes-vous sûr de vouloir effectuer cette action ?",
       "addDescription": "Ajouter une description",
+      "dbFieldName": "Nom du champ physique",
       "description": "Description",
       "descriptionPlaceholder": "Décrivez ce champ (optionnel)",
       "type": "Type",
@@ -223,7 +234,7 @@
       "enableValidateFieldUnique": "Activer la validation des valeurs uniques",
       "enableValidateFieldNotNull": "Activer la validation des valeurs non nulles",
       "knowMore": "en savoir plus",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
       "filterByView": "Filtrer les enregistrements par vue",
       "filter": "Filtrer les enregistrements",
       "hideFields": "Masquer les champs",
@@ -266,8 +277,7 @@
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer \"{{tableName}}\" ?",
     "dbTableName": "Nom de la table dans la base de données physique",
     "schemaName": "Nom du schéma dans la base de données physique",
-    "tableInfo": "Informations sur la table",
-    "tableInfoDetail": "Informations de base pour la table",
+    "baseInfo": "Informations sur la base",
     "typeOfDatabase": "Type de base de données",
     "descriptionForTable": "Description pour cette table",
     "nameForTable": "Nom pour cette table",
@@ -295,6 +305,23 @@
       "tableLabel": "Étiquette de la table",
       "effectCells": "Peut affecter les cellules",
       "estimatedTime": "Temps estimé"
+    },
+    "integrity": {
+      "check": "Vérifier",
+      "title": "Vérification de l'intégrité",
+      "loading": "Vérification de l'intégrité...",
+      "allGood": "Tout va bien !",
+      "fixIssues": "Corriger les problèmes"
+    },
+    "index": {
+      "description": "Les index peuvent améliorer considérablement les performances de recherche, en particulier lors du traitement de grandes quantités de données (plus de {{rowCount}} lignes). L'inconvénient est que les opérations d'écriture sont légèrement plus lentes. Si vous effectuez fréquemment des recherches ou avez de grands ensembles de données, il est recommandé d'activer l'indexation.",
+      "repair": "réparer",
+      "repairTip": "Des anomalies d'index ont été détectées, ce qui peut entraîner une dégradation des performances de recherche. Il est recommandé de cliquer sur le bouton réparer pour corriger l'index",
+      "enableIndexTip": "Vous créez un index. Le temps nécessaire dépend de la taille de la table. Pendant ce processus, les performances de lecture et d'écriture de la table peuvent être affectées. Veuillez patienter.",
+      "globalSearchTip": "Rechercher dans tous les champs sauf les champs de date et de case à cocher",
+      "autoIndexTip": "Votre table a dépassé {{rowCount}} lignes. Nous vous recommandons d'activer l'indexation pour améliorer les performances de recherche. Veuillez noter que l'indexation peut légèrement réduire la vitesse d'écriture. Pendant la création de l'index, les performances de lecture/écriture de la table peuvent être temporairement affectées. Veuillez patienter.",
+      "enableIndex": "activer",
+      "keepAsIs": "laisser tel quel"
     }
   },
   "import": {
@@ -449,7 +476,8 @@
     "description": "Vous pouvez accéder directement à la base de données via la connexion à la base de données, y compris toutes les tables sous la base actuelle",
     "noPermission": "Vous n'avez pas la permission d'accéder à la base de données",
     "connectionCountTip": "Le nombre maximum de connexions à la base de données est <b>{{max}}</b> et les connexions actuelles sont <b>{{current}}</b>",
-    "helpLink": "https://help.teable.io/developer/database-connection"
+    "createFailed": "Veuillez vérifier que la variable d'environnement PUBLIC_DATABASE_PROXY est correctement configurée",
+    "helpLink": "https://help.teable.io/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "Ajouter un enregistrement",
@@ -459,7 +487,10 @@
     "action": {
       "rename": "Renommer la vue",
       "duplicate": "Dupliquer la vue",
-      "delete": "Supprimer la vue"
+      "delete": "Supprimer la vue",
+      "lock": "Verrouiller la vue",
+      "unlock": "Déverrouiller la vue",
+      "enable": "Activer"
     },
     "category": {
       "table": "Vue en grille",
@@ -471,6 +502,9 @@
     "crash": {
       "title": "Plantage !",
       "description": "Cette vue est endommagée. Si le rafraîchissement échoue toujours, veuillez nous contacter à support@teable.io"
+    },
+    "locked": {
+      "tip": "Cette vue est verrouillée. Vous pouvez activer le mode personnel pour modifier les options de la vue, et les modifications ne prendront effet que pour vous."
     }
   },
   "lastModifiedTime": "Dernière modification",

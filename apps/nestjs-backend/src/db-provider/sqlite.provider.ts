@@ -1,9 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
+import type { FieldType, IFilter, ILookupOptionsVo, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
 import type { PrismaClient } from '@teable/db-main-prisma';
-import type { IAggregationField, ISearchIndexByQueryRo } from '@teable/openapi';
+import type { IAggregationField, ISearchIndexByQueryRo, TableIndex } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -22,9 +22,12 @@ import type { IFilterQueryInterface } from './filter-query/filter-query.interfac
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import { GroupQuerySqlite } from './group-query/group-query.sqlite';
+import type { IntegrityQueryAbstract } from './integrity-query/abstract';
+import { IntegrityQuerySqlite } from './integrity-query/integrity-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { getOffset } from './search-query/get-offset';
-import { SearchQueryBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
+import { IndexBuilderSqlite } from './search-query/search-index-builder.sqlite';
+import { SearchQuerySqliteBuilder, SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
 
@@ -63,6 +66,18 @@ export class SqliteProvider implements IDbProvider {
     const sql = this.columnInfo(tableName);
     const columns = await prisma.$queryRawUnsafe<{ name: string }[]>(sql);
     return columns.some((column) => column.name === columnName);
+  }
+
+  checkTableExist(tableName: string): string {
+    return this.knex
+      .raw(
+        `SELECT EXISTS (
+          SELECT 1 FROM sqlite_master 
+          WHERE type='table' AND name = ?
+        ) as "exists"`,
+        [tableName]
+      )
+      .toQuery();
   }
 
   renameColumn(tableName: string, oldName: string, newName: string): string[] {
@@ -136,15 +151,19 @@ export class SqliteProvider implements IDbProvider {
       .update({
         [columnName]: this.knex.raw(
           `
-          (
-            SELECT json_group_array(
-              CASE
-                WHEN json_extract(value, '$.id') = ?
-                THEN json_patch(value, json_object(?, ?))
-                ELSE value
-              END
+          json(
+            (
+              SELECT json_group_array(
+                json(
+                  CASE
+                    WHEN json_extract(value, '$.id') = ?
+                    THEN json_patch(value, json_object(?, ?))
+                    ELSE value
+                  END
+                )
+              )
+              FROM json_each(${columnName})
             )
-            FROM json_each(${columnName})
           )
         `,
           [id, key, value]
@@ -174,7 +193,7 @@ export class SqliteProvider implements IDbProvider {
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
-    // TODO: The code doesn't taste good because knex utilizes the "select-stmt" mode to construct SQL queries for SQLite batchInsert.
+    // to-do: The code doesn't taste good because knex utilizes the "select-stmt" mode to construct SQL queries for SQLite batchInsert.
     //  This is a temporary solution, and I'm actively keeping an eye on this issue for further developments.
     const builder = this.knex.client.queryBuilder();
     builder.insert(insertData).into(tableName).toSQL();
@@ -264,22 +283,31 @@ export class SqliteProvider implements IDbProvider {
 
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string?, boolean?]
+    searchFields: IFieldInstance[],
+    tableIndex: TableIndex[],
+    search: [string, string?, boolean?]
   ) {
-    return SearchQueryAbstract.factory(SearchQuerySqlite, originQueryBuilder, fieldMap, search);
+    return SearchQueryAbstract.appendQueryBuilder(
+      SearchQuerySqlite,
+      originQueryBuilder,
+      searchFields,
+      tableIndex,
+      search
+    );
   }
 
   searchCountQuery(
     originQueryBuilder: Knex.QueryBuilder,
     searchField: IFieldInstance[],
-    searchValue: string
+    search: [string, string?, boolean?],
+    tableIndex: TableIndex[]
   ) {
     return SearchQueryAbstract.buildSearchCountQuery(
       SearchQuerySqlite,
       originQueryBuilder,
       searchField,
-      searchValue
+      search,
+      tableIndex
     );
   }
 
@@ -288,20 +316,27 @@ export class SqliteProvider implements IDbProvider {
     dbTableName: string,
     searchField: IFieldInstance[],
     searchIndexRo: ISearchIndexByQueryRo,
+    tableIndex: TableIndex[],
     baseSortIndex?: string,
     setFilterQuery?: (qb: Knex.QueryBuilder) => void,
     setSortQuery?: (qb: Knex.QueryBuilder) => void
   ) {
-    return new SearchQueryBuilder(
+    return new SearchQuerySqliteBuilder(
       originQueryBuilder,
       dbTableName,
       searchField,
       searchIndexRo,
+      tableIndex,
       baseSortIndex,
       setFilterQuery,
       setSortQuery
     ).getSearchIndexQuery();
   }
+
+  searchIndex() {
+    return new IndexBuilderSqlite();
+  }
+
   shareFilterCollaboratorsQuery(
     originQueryBuilder: Knex.QueryBuilder,
     dbFieldName: string,
@@ -318,6 +353,10 @@ export class SqliteProvider implements IDbProvider {
 
   baseQuery(): BaseQueryAbstract {
     return new BaseQuerySqlite(this.knex);
+  }
+
+  integrityQuery(): IntegrityQueryAbstract {
+    return new IntegrityQuerySqlite(this.knex);
   }
 
   calendarDailyCollectionQuery(
@@ -382,19 +421,49 @@ export class SqliteProvider implements IDbProvider {
     return this.knex('field')
       .select({
         id: 'id',
+        type: 'type',
+        name: 'name',
         lookupOptions: 'lookup_options',
       })
+      .whereNull('deleted_time')
       .whereRaw(`json_extract(lookup_options, '$."${optionsKey}"') = ?`, [value])
       .toQuery();
   }
 
-  optionsQuery(optionsKey: string, value: string): string {
+  optionsQuery(type: FieldType, optionsKey: string, value: string): string {
     return this.knex('field')
       .select({
+        tableId: 'table_id',
         id: 'id',
+        name: 'name',
+        description: 'description',
+        notNull: 'not_null',
+        unique: 'unique',
+        isPrimary: 'is_primary',
+        dbFieldName: 'db_field_name',
+        isComputed: 'is_computed',
+        isPending: 'is_pending',
+        hasError: 'has_error',
+        dbFieldType: 'db_field_type',
+        isMultipleCellValue: 'is_multiple_cell_value',
+        isLookup: 'is_lookup',
+        lookupOptions: 'lookup_options',
+        type: 'type',
         options: 'options',
+        cellValueType: 'cell_value_type',
       })
+      .where('type', type)
+      .whereNull('is_lookup')
+      .whereNull('deleted_time')
       .whereRaw(`json_extract(options, '$."${optionsKey}"') = ?`, [value])
       .toQuery();
+  }
+
+  searchBuilder(qb: Knex.QueryBuilder, search: [string, string][]): Knex.QueryBuilder {
+    return qb.where((builder) => {
+      search.forEach(([field, value]) => {
+        builder.orWhereRaw('LOWER(??) LIKE LOWER(?)', [field, `%${value}%`]);
+      });
+    });
   }
 }

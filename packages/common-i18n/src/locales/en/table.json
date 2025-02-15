@@ -34,6 +34,16 @@
         "label": "API",
         "restfulApi": "Restful API",
         "databaseConnection": "Database Connection"
+      },
+      "personalView": {
+        "personal": "Personal",
+        "collaborative": "Collaborative",
+        "dialog": {
+          "title": "Switch to view collaborative mode",
+          "description": "Switch to view collaborative mode, the personal configuration of the view will be synchronized with everyone, please confirm whether to synchronize",
+          "cancelText": "Not synchronize",
+          "confirmText": "Synchronize"
+        }
       }
     }
   },
@@ -180,6 +190,7 @@
       "previewDependenciesGraph": "Preview Dependencies Graph",
       "areYouSurePerformIt": "Are you sure you want to perform it?",
       "addDescription": "Add Description",
+      "dbFieldName": "DB field name",
       "description": "Description",
       "descriptionPlaceholder": "Describe this field (optional)",
       "type": "Type",
@@ -232,7 +243,7 @@
       "enableValidateFieldUnique": "Forbid duplicate values",
       "enableValidateFieldNotNull": "Forbid non-empty values",
       "knowMore": "know more",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "linkFieldKnowMoreLink": "https://help.teable.io/en/basic/field/advanced/link",
       "filterByView": "Filter records by view",
       "filter": "Filter records",
       "hideFields": "Hide fields",
@@ -275,8 +286,7 @@
     "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
-    "tableInfo": "Table Info",
-    "tableInfoDetail": "Basic information for the table",
+    "baseInfo": "Base Info",
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
@@ -298,12 +308,32 @@
       "clearSuccessful": "Clear successful",
       "deleting": "Deleting...",
       "deleteSuccessful": "Delete successful",
-      "pasteFileFailed": "Files can only be pasted into an attachment field"
+      "pasteFileFailed": "Files can only be pasted into an attachment field",
+      "copyError": {
+        "noFocus": "Please keep the page active and do not switch windows"
+      }
     },
     "graph": {
       "tableLabel": "Table label",
       "effectCells": "May effect cells",
       "estimatedTime": "Estimated time"
+    },
+    "integrity": {
+      "check": "Check",
+      "title": "Integrity check",
+      "loading": "Checking integrity...",
+      "allGood": "All good!",
+      "fixIssues": "Fix Issues"
+    },
+    "index": {
+      "description": "Indexes can significantly improve search performance, especially when dealing with large amounts of data (over {{rowCount}} rows). The downside is slightly slower write operations. If you frequently perform searches or have large datasets, it's recommended to enable indexing.",
+      "repair": "repair",
+      "repairTip": "Index anomalies detected, which may cause search performance degradation. It is recommended to click the repair button to fix the index",
+      "enableIndexTip": "You are creating an index. The time required depends on the table size. During this process, the table's read and write performance may be affected. Please be patient.",
+      "globalSearchTip": "Search all fields except date and checkbox field",
+      "autoIndexTip": "Your table has exceeded {{rowCount}} rows. We recommend enabling indexing to improve search performance. Please note that indexing may slightly reduce write speed. During index creation, table read/write performance might be temporarily affected. Please be patient.",
+      "enableIndex": "enable",
+      "keepAsIs": "keep as it"
     }
   },
   "import": {
@@ -461,7 +491,8 @@
     "description": "You can access the database directly through the database connection, including all the tables under the current base",
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
-    "helpLink": "https://help.teable.io/developer/database-connection"
+    "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
+    "helpLink": "https://help.teable.io/en/deploy/database-connection"
   },
   "view": {
     "addRecord": "Add record",
@@ -471,7 +502,10 @@
     "action": {
       "rename": "Rename view",
       "duplicate": "Duplicate view",
-      "delete": "Delete view"
+      "delete": "Delete view",
+      "lock": "Lock view",
+      "unlock": "Unlock view",
+      "enable": "Enable"
     },
     "category": {
       "table": "Grid View",
@@ -488,6 +522,9 @@
     "search": {
       "field_one": "{{name}}",
       "field_other": "fields({{length}})"
+    },
+    "locked": {
+      "tip": "This view is locked. You can enable personal mode to edit view options, and the changes will only take effect for yourself."
     }
   },
   "lastModifiedTime": "Last modified time",
@@ -500,5 +537,9 @@
     "title": "Table trash",
     "resourceType": "Resource type",
     "deletedResource": "Deleted resource"
+  },
+  "plugin": {
+    "recent": "Recents",
+    "more": "Explore more..."
   }
 }

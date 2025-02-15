@@ -22,7 +22,7 @@ import type {
 import {
   and,
   CellFormat,
-  DbFieldType,
+  CellValueType,
   FieldKeyType,
   FieldType,
   generateRecordId,
@@ -36,7 +36,7 @@ import {
   Relationship,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PrismaService, wrapWithValidationErrorHandler } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
   IGetRecordQuery,
@@ -49,7 +49,7 @@ import type {
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { get, difference, keyBy, orderBy } from 'lodash';
+import { get, difference, keyBy, orderBy, uniqBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
@@ -72,6 +72,7 @@ import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
+import { TableIndexService } from '../table/table-index.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { IFieldRaws } from './type';
 
@@ -102,6 +103,7 @@ export class RecordService {
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService,
     private readonly attachmentStorageService: AttachmentsStorageService,
+    private readonly tableIndexService: TableIndexService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
@@ -384,28 +386,6 @@ export class RecordService {
     }
   }
 
-  private getFieldMapWithoutHiddenFields(
-    originFieldMap?: Record<string, IFieldInstance>,
-    columnMetaRaw?: string
-  ) {
-    if (!columnMetaRaw || !originFieldMap) {
-      return originFieldMap;
-    }
-
-    const newFieldMap = { ...originFieldMap };
-
-    const parseColumnMeta = JSON.parse(columnMetaRaw);
-
-    if (parseColumnMeta) {
-      Object.entries(parseColumnMeta).forEach(([key, value]) => {
-        const hidden = get(value, 'hidden');
-        hidden && delete newFieldMap[key];
-      });
-    }
-
-    return newFieldMap as Record<string, IFieldInstance>;
-  }
-
   private async getTinyView(tableId: string, viewId?: string) {
     if (!viewId) {
       return;
@@ -433,15 +413,10 @@ export class RecordService {
     }
 
     if (!fieldIdOrName) {
-      return [
-        searchValue,
-        Object.values(fieldMap)
-          .map((f) => f.id)
-          .join(','),
-        hideNotMatchRow,
-      ];
+      return [searchValue, fieldIdOrName, hideNotMatchRow];
     }
-    const fieldIds = fieldIdOrName.split(',');
+
+    const fieldIds = fieldIdOrName?.split(',');
 
     fieldIds.forEach((id) => {
       const field = fieldMap[id];
@@ -481,14 +456,8 @@ export class RecordService {
       groupBy,
       originSearch
     );
-    const fieldMapWithoutHiddenFields = this.getFieldMapWithoutHiddenFields(
-      fieldMap,
-      view?.columnMeta
-    );
 
-    const search = originSearch
-      ? this.parseSearch(originSearch, fieldMapWithoutHiddenFields)
-      : undefined;
+    const search = originSearch ? this.parseSearch(originSearch, fieldMap) : undefined;
 
     return {
       queryBuilder,
@@ -498,7 +467,6 @@ export class RecordService {
       orderBy,
       groupBy,
       fieldMap,
-      fieldMapWithoutHiddenFields,
     };
   }
 
@@ -532,6 +500,7 @@ export class RecordService {
     query: Pick<
       IGetRecordsRo,
       | 'viewId'
+      | 'ignoreViewQuery'
       | 'orderBy'
       | 'groupBy'
       | 'filter'
@@ -543,16 +512,11 @@ export class RecordService {
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
-    const {
-      dbTableName,
-      queryBuilder,
-      filter,
-      search,
-      orderBy,
-      groupBy,
-      fieldMap,
-      fieldMapWithoutHiddenFields,
-    } = await this.prepareQuery(tableId, query);
+    const { dbTableName, queryBuilder, filter, search, orderBy, groupBy, fieldMap } =
+      await this.prepareQuery(tableId, {
+        ...query,
+        viewId: query.ignoreViewQuery ? undefined : query.viewId,
+      });
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
@@ -597,9 +561,11 @@ export class RecordService {
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
 
-    if (search && search[2]) {
+    if (search && search[2] && fieldMap) {
+      const searchFields = await this.getSearchFields(fieldMap, search, query?.viewId);
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, search);
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
       });
     }
 
@@ -701,6 +667,7 @@ export class RecordService {
 
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
     const queryResult = await this.getDocIdsByQuery(tableId, {
+      ignoreViewQuery: query.ignoreViewQuery ?? false,
       viewId: query.viewId,
       skip: query.skip,
       take: query.take,
@@ -1046,9 +1013,22 @@ export class RecordService {
         });
       });
 
-    const sql = this.dbProvider.batchInsertSql(dbTableName, snapshots);
+    const sql = this.dbProvider.batchInsertSql(
+      dbTableName,
+      snapshots.map((s) => {
+        return Object.entries(s).reduce(
+          (acc, [key, value]) => {
+            acc[key] = Array.isArray(value) ? JSON.stringify(value) : value;
+            return acc;
+          },
+          {} as Record<string, unknown>
+        );
+      })
+    );
 
-    await this.prismaService.txClient().$executeRawUnsafe(sql);
+    await wrapWithValidationErrorHandler(() =>
+      this.prismaService.txClient().$executeRawUnsafe(sql)
+    );
 
     return snapshots;
   }
@@ -1320,7 +1300,7 @@ export class RecordService {
     tableId: string,
     query: IGetRecordsRo
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
-    const { skip, take = 100 } = query;
+    const { skip, take = 100, ignoreViewQuery } = query;
 
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
@@ -1330,7 +1310,11 @@ export class RecordService {
       throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
-    const { groupPoints, filter: filterWithGroup } = await this.getGroupRelatedData(tableId, query);
+    const viewId = ignoreViewQuery ? undefined : query.viewId;
+    const { groupPoints, filter: filterWithGroup } = await this.getGroupRelatedData(tableId, {
+      ...query,
+      viewId,
+    });
     const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
       ...query,
       filter: filterWithGroup,
@@ -1351,7 +1335,15 @@ export class RecordService {
 
     // this search step should not abort the query
     try {
-      const searchHitIndex = await this.getSearchHitIndex(tableId, query, dbTableName, ids);
+      const searchHitIndex = await this.getSearchHitIndex(
+        tableId,
+        {
+          ...query,
+          viewId,
+        },
+        dbTableName,
+        ids
+      );
       return { ids, extra: { groupPoints, searchHitIndex } };
     } catch (e) {
       this.logger.error(`Get search index error: ${(e as Error).message}`, (e as Error)?.stack);
@@ -1368,6 +1360,12 @@ export class RecordService {
   ) {
     let viewColumnMeta: IGridColumnMeta | null = null;
     const fieldInstanceMap = { ...originFieldInstanceMap };
+
+    if (!search) {
+      return [] as IFieldInstance[];
+    }
+
+    const isSearchAllFields = !search?.[1];
 
     if (viewId) {
       const { columnMeta: viewColumnRawMeta } =
@@ -1395,45 +1393,54 @@ export class RecordService {
       });
     }
 
-    return orderBy(
-      Object.values(fieldInstanceMap)
-        .map((field) => ({
-          ...field,
-          isStructuredCellValue: field.isStructuredCellValue,
-        }))
-        .filter((field) => {
-          if (!viewColumnMeta) {
-            return true;
-          }
-          return !viewColumnMeta?.[field.id]?.hidden;
-        })
-        .filter((field) => {
-          if (!projection) {
-            return true;
-          }
-          return projection.includes(field.id);
-        })
-        .filter((field) => {
-          if (!search?.[1]) {
-            return true;
-          }
-
-          const searchArr = search[1].split(',');
-          return searchArr.includes(field.id);
-        })
-        .filter((field) => {
-          if (field.dbFieldType === DbFieldType.Boolean) {
-            return false;
-          }
-          return true;
-        })
-        .map((field) => {
-          return {
+    return uniqBy(
+      orderBy(
+        Object.values(fieldInstanceMap)
+          .map((field) => ({
             ...field,
-            order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
-          };
-        }),
-      ['order', 'createTime']
+            isStructuredCellValue: field.isStructuredCellValue,
+          }))
+          .filter((field) => {
+            if (!viewColumnMeta) {
+              return true;
+            }
+            return !viewColumnMeta?.[field.id]?.hidden;
+          })
+          .filter((field) => {
+            if (!projection) {
+              return true;
+            }
+            return projection.includes(field.id);
+          })
+          .filter((field) => {
+            if (isSearchAllFields) {
+              return true;
+            }
+
+            const searchArr = search?.[1]?.split(',') || [];
+            return searchArr.includes(field.id);
+          })
+          .filter((field) => {
+            if (
+              [CellValueType.Boolean, CellValueType.DateTime].includes(field.cellValueType) &&
+              isSearchAllFields
+            ) {
+              return false;
+            }
+            if (field.cellValueType === CellValueType.Boolean) {
+              return false;
+            }
+            return true;
+          })
+          .map((field) => {
+            return {
+              ...field,
+              order: viewColumnMeta?.[field.id]?.order ?? Number.MIN_SAFE_INTEGER,
+            };
+          }),
+        ['order', 'createTime']
+      ),
+      'id'
     ) as unknown as IFieldInstance[];
   }
 
@@ -1443,7 +1450,7 @@ export class RecordService {
     dbTableName: string,
     Ids: string[]
   ) {
-    const { search, viewId, projection } = query;
+    const { search, viewId, projection, ignoreViewQuery } = query;
 
     if (!search) {
       return null;
@@ -1460,7 +1467,14 @@ export class RecordService {
       },
       {} as Record<string, IFieldInstance>
     );
-    const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId, projection);
+    const searchFields = await this.getSearchFields(
+      fieldInstanceMap,
+      search,
+      ignoreViewQuery ? undefined : viewId,
+      projection
+    );
+
+    const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
 
     if (searchFields.length === 0) {
       return null;
@@ -1471,9 +1485,18 @@ export class RecordService {
         qb.select('*').from(dbTableName).whereIn('__id', Ids);
       })
       .with('search_index', (qb) => {
-        this.dbProvider.searchIndexQuery(qb, 'current_page_records', searchFields, {
-          search,
-        });
+        this.dbProvider.searchIndexQuery(
+          qb,
+          'current_page_records',
+          searchFields,
+          {
+            search,
+          },
+          tableIndex,
+          undefined,
+          undefined,
+          undefined
+        );
       })
       .from('search_index');
 
@@ -1510,6 +1533,7 @@ export class RecordService {
       cellFormat,
       projection,
       viewId,
+      ignoreViewQuery,
       filterLinkCellCandidate,
       filterLinkCellSelected,
     } = query;
@@ -1525,6 +1549,7 @@ export class RecordService {
 
     const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
       viewId,
+      ignoreViewQuery,
       filter: filterWithGroup,
       orderBy,
       search,
@@ -1757,8 +1782,10 @@ export class RecordService {
   private async getRowCountByFilter(
     dbTableName: string,
     fieldInstanceMap: Record<string, IFieldInstance>,
+    tableId: string,
     filter?: IFilter,
-    search?: [string, string?, boolean?]
+    search?: [string, string?, boolean?],
+    viewId?: string
   ) {
     const withUserId = this.cls.get('user.id');
     const queryBuilder = this.knex(dbTableName);
@@ -1770,9 +1797,10 @@ export class RecordService {
     }
 
     if (search && search[2]) {
-      const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
+      const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, fieldInstanceMap, handledSearch);
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
       });
     }
 
@@ -1784,7 +1812,13 @@ export class RecordService {
   }
 
   public async getGroupRelatedData(tableId: string, query?: IGetRecordsRo) {
-    const { viewId, groupBy: extraGroupBy, filter, search, collapsedGroupIds } = query || {};
+    const {
+      groupBy: extraGroupBy,
+      filter,
+      search,
+      collapsedGroupIds,
+      ignoreViewQuery,
+    } = query || {};
     let groupPoints: IGroupPoint[] = [];
 
     const groupBy = parseGroup(extraGroupBy);
@@ -1796,6 +1830,7 @@ export class RecordService {
       };
     }
 
+    const viewId = ignoreViewQuery ? undefined : query?.viewId;
     const viewRaw = await this.getTinyView(tableId, viewId);
     const fieldInstanceMap = (await this.getNecessaryFieldMap(
       tableId,
@@ -1804,10 +1839,6 @@ export class RecordService {
       groupBy,
       search
     ))!;
-    const fieldMapWithoutHiddenFields = this.getFieldMapWithoutHiddenFields(
-      fieldInstanceMap,
-      viewRaw?.columnMeta
-    );
     const dbTableName = await this.getDbTableName(tableId);
 
     const filterStr = viewRaw?.filter;
@@ -1824,9 +1855,10 @@ export class RecordService {
     }
 
     if (search && search[2]) {
-      const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
+      const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, handledSearch);
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search);
       });
     }
 
@@ -1840,8 +1872,10 @@ export class RecordService {
     const rowCount = await this.getRowCountByFilter(
       dbTableName,
       fieldInstanceMap,
+      tableId,
       mergedFilter,
-      search
+      search,
+      viewId
     );
 
     try {
@@ -1889,6 +1923,7 @@ export class RecordService {
     }
 
     const queryResult = await this.getDocIdsByQuery(tableId, {
+      ignoreViewQuery: query.ignoreViewQuery ?? false,
       viewId: query.viewId,
       skip: query.skip,
       take: query.take,

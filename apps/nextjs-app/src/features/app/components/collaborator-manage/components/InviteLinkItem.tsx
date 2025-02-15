@@ -1,5 +1,6 @@
 import { Copy, X } from '@teable/icons';
 import { useLanDayjs } from '@teable/sdk/hooks';
+import { syncCopy } from '@teable/sdk/utils';
 import {
   Button,
   Input,
@@ -24,7 +25,7 @@ export const InviteLinkItem = (props: {
   const dayjs = useLanDayjs();
 
   const copyInviteUrl = async () => {
-    await navigator.clipboard.writeText(url);
+    syncCopy(url);
     toast({ title: t('invite.dialog.linkCopySuccess') });
   };
 

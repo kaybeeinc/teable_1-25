@@ -21,6 +21,23 @@ export const commentReactionSchema = z
   })
   .array();
 
+export type ICommentReaction = z.infer<typeof commentReactionSchema>;
+
+export const commentReactionDetailSchema = z
+  .object({
+    reaction: commentReactionSymbolSchema,
+    user: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        avatar: z.string().optional(),
+      })
+    ),
+  })
+  .array();
+
+export type ICommentReactionDetail = z.infer<typeof commentReactionDetailSchema>;
+
 export const updateCommentReactionRoSchema = z.object({
   reaction: commentReactionSymbolSchema,
 });
@@ -46,7 +63,7 @@ export const CreateCommentReactionRoute: RouteConfig = registerRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: 'Successfully create comment reaction.',
     },
   },

@@ -1,7 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
   binaryTargets   = ["native", "debian-openssl-1.1.x"]
-  previewFeatures = ["tracing"]
 }
 
 datasource db {
@@ -125,6 +124,7 @@ model View {
   order            Float
   version          Int
   columnMeta       String    @map("column_meta")
+  isLocked         Boolean?  @map("is_locked")
   enableShare      Boolean?  @map("enable_share")
   shareId          String?   @map("share_id")
   shareMeta        String?   @map("share_meta")
@@ -195,7 +195,6 @@ model User {
   refMeta          String?   @map("ref_meta")
 
   accounts         Account[]
-  collaborators    Collaborator[]
   @@map("users")
 }
 
@@ -252,15 +251,14 @@ model Collaborator {
   roleName         String    @map("role_name")
   resourceType     String    @map("resource_type")
   resourceId       String    @map("resource_id")
-  userId           String    @map("user_id")
+  principalId      String    @map("principal_id")
+  principalType    String    @map("principal_type")
   createdBy        String    @map("created_by")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
 
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([resourceType, resourceId, userId])
+  @@unique([resourceType, resourceId, principalId, principalType])
   @@map("collaborator")
 }
 
@@ -332,6 +330,8 @@ model Setting {
   disallowSignUp            Boolean?  @map("disallow_sign_up")
   disallowSpaceCreation     Boolean?  @map("disallow_space_creation")
   disallowSpaceInvitation   Boolean?  @map("disallow_space_invitation")
+  enableEmailVerification   Boolean?  @map("enable_email_verification")
+  aiConfig                  String?   @map("ai_config")
 
   @@map("setting")
 }

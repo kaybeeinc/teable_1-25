@@ -15,7 +15,7 @@
 </div>
 
 <p align="center">
-  <a target="_blank" href="https://teable.io">Home</a> | <a target="_blank" href="https://help.teable.io">Help</a> | <a target="_blank" href="https://Blog.teable.io">Blog</a> | <a target="_blank" href="https://template.teable.io">Template</a> | <a target="_blank" href="https://help.teable.io/developer/api">API</a> | <a target="_blank" href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a> | <a target="_blank" href="https://discord.gg/uZwp7tDE5W">Discord</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
+  <a target="_blank" href="https://teable.io">Home</a> | <a target="_blank" href="https://help.teable.io">Help</a> | <a target="_blank" href="https://blog.teable.io">Blog</a> | <a target="_blank" href="https://template.teable.io">Template</a> | <a target="_blank" href="https://help.teable.io/en/api-doc/token">API</a> | <a target="_blank" href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a> | <a target="_blank" href="https://discord.gg/uZwp7tDE5W">Discord</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
 </p>
 
 <p align="center">
@@ -52,29 +52,28 @@
 
 1. Looking for a quick experience? Select a scenario from the [template center](https://template.teable.io) and click "Use this template".
 2. Seeking high performance? Try the [1 million rows demo](https://app.teable.io/share/shrVgdLiOvNQABtW0yX/view) to feel the speed of Teable.
-3. Want to learn to use it quickly? Click on this [tutorial](https://help.teable.io/quick-start/build-a-simple-base)
-4. Interested in deploying it yourself? Click [Deploy on Railway](https://railway.app/template/wada5e?referralCode=rE4BjB)
+3. Interested in deploying it yourself? Click [Deploy on Railway](https://railway.app/template/wada5e?referralCode=rE4BjB)
 
 ## ✨Features
 
-#### 🍺 Feature Packed
+### 🍺 Feature Packed
 
 Everything you need, right out of the box:
 
 - [x] Aggregation
-- [x] Attachments preview
+- [x] Attachments Preview
 - [x] Batch Editing
 - [x] Charts
 - [x] Comments
 - [x] Custom Columns
-- [x] Field conversion
+- [x] Field Conversion
 - [x] Filtering
 - [x] Formatting
 - [x] Formula Support
 - [x] Grouping
 - [x] History
 - [x] Import/Export
-- [x] Millions of rows
+- [x] Millions of Rows
 - [x] Plugins
 - [x] Real-time
 - [x] Search
@@ -83,7 +82,7 @@ Everything you need, right out of the box:
 - [x] Undo/Redo
 - [x] Validation
 
-#### 🏞️ Multiple Views
+### 🏞️ Multiple Views
 
 Visualize and interact with data in various ways best suited for their specific tasks.
 
@@ -100,7 +99,7 @@ Visualize and interact with data in various ways best suited for their specific 
   </tr>
   <tr>
     <td width="50%"><img alt="Calendar View" src="static/assets/images/view-calendar.png"></td>
-    <td width="50%"><img alt="Gallery View" src="static/assets/images/view-gallary.png"></td>
+    <td width="50%"><img alt="Gallery View" src="static/assets/images/view-gallery.png"></td>
   </tr>
   <tr>
     <td width="50%"><img alt="Kanban View" src="static/assets/images/view-kanban.png"></td>
@@ -112,7 +111,7 @@ Visualize and interact with data in various ways best suited for their specific 
   </tr>
 </table>
 
-#### 📊 Charts & Dashboard
+### 📊 Charts & Dashboard
 
   <img alt="Teable Dashboard" width="100%" src="static/assets/images/dashboard.png">
 
@@ -149,7 +148,7 @@ cd dockers/examples/standalone/
 docker-compose up -d
 ```
 
-for more details, see [install teable](https://help.teable.io/deployment/docker-compose)
+for more details, see [install teable](https://help.teable.io/en/deploy/docker)
 
 ### One Click Deployment
 
@@ -192,7 +191,7 @@ make switch-db-mode
 
 ```sh
 cd apps/nextjs-app
-copy .env.development .env.development.local
+cp .env.development .env.development.local
 ```
 
 #### 4. Run Dev Server
@@ -203,6 +202,14 @@ you just need to start backend, it will start next server for frontend automatic
 cd apps/nestjs-backend
 pnpm dev
 ```
+
+By default, the plugin development server is not started. To preview and develop plugins, run:
+```sh
+cd plugins
+pnpm dev
+```
+This will start the plugin development server on port 3002.
+
 
 ## Why Teable?
 
@@ -235,6 +242,6 @@ In essence, Teable isn't just another no-code solution, it's a comprehensive ans
 
 Teable Community Edition (CE) is the current available version, it's free for self-host under the AGPL license.
 
-Teable Enterprise Edition (EE) is yet to be published, it will have more advanced features and enterprise-oriented offerings, including but not exclusive to authority matrix, automation, advanced admin and audit, etc., you may refer to https://help.teable.io/deployment/docker-compose for more information
+Teable Enterprise Edition (EE) is yet to be published, it will have more advanced features and enterprise-oriented offerings, including but not exclusive to authority matrix, automation, advanced admin and audit, etc., you may refer to https://help.teable.io/en/deploy/docker for more information
 
 See [./LICENSE](./LICENSE) for details.

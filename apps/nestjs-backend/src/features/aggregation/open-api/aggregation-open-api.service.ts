@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import type { StatisticsFunc } from '@teable/core';
 import { getValidStatisticFunc } from '@teable/core';
 import type {
+  ISearchIndexByQueryRo,
   IAggregationRo,
   IAggregationVo,
   ICalendarDailyCollectionRo,
@@ -10,7 +11,6 @@ import type {
   IGroupPointsVo,
   IQueryBaseRo,
   IRowCountVo,
-  ISearchIndexByQueryRo,
   ISearchCountRo,
 } from '@teable/openapi';
 import { forIn, isEmpty, map } from 'lodash';
@@ -22,9 +22,19 @@ export class AggregationOpenApiService {
   constructor(private readonly aggregationService: AggregationService) {}
 
   async getAggregation(tableId: string, query?: IAggregationRo): Promise<IAggregationVo> {
-    const { viewId, filter: customFilter, field: aggregationFields, groupBy } = query || {};
+    const {
+      viewId,
+      filter: customFilter,
+      field: aggregationFields,
+      groupBy,
+      ignoreViewQuery,
+    } = query || {};
 
-    let withView: IWithView = { viewId, customFilter, groupBy };
+    let withView: IWithView = {
+      viewId: ignoreViewQuery ? undefined : viewId,
+      customFilter,
+      groupBy,
+    };
 
     const fieldStatistics: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
 

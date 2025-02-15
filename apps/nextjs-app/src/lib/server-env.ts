@@ -11,6 +11,16 @@ export interface IServerEnv {
   storagePrefix?: string;
   edition?: string;
   passwordLoginDisabled?: boolean;
+  // global settings
+  globalSettings?: {
+    disallowSignUp?: boolean;
+    disallowSpaceCreation?: boolean;
+    disallowSpaceInvitation?: boolean;
+    aiConfig?: {
+      enable: boolean;
+    };
+  };
+  enableDomainEmail?: boolean;
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});

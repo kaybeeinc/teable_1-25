@@ -9,6 +9,7 @@ import {
   restoreTrash,
   permanentDeleteBase,
   permanentDeleteSpace,
+  PrincipalType,
 } from '@teable/openapi';
 import { InfiniteTable } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -154,7 +155,12 @@ export const SpaceTrashPage = () => {
 
           const { name, avatar, email } = user;
 
-          return <Collaborator name={name} email={email} avatar={avatar} />;
+          return (
+            <Collaborator
+              item={{ name, email, avatar, type: PrincipalType.User }}
+              className="flex-1"
+            />
+          );
         },
       },
       {
@@ -249,7 +255,6 @@ export const SpaceTrashPage = () => {
               key={value}
               variant={resourceType === value ? 'default' : 'ghost'}
               size="sm"
-              className="w-16"
               onClick={() =>
                 handleResourceTypeChange(value as ResourceType.Space | ResourceType.Base)
               }
@@ -281,9 +286,10 @@ export const SpaceTrashPage = () => {
           const { resourceId, resourceType } = deletingResource;
           setConfirmVisible(false);
           if (resourceType === ResourceType.Space) {
-            return mutatePermanentDeleteSpace({
+            mutatePermanentDeleteSpace({
               spaceId: resourceId,
             });
+            return;
           }
           mutatePermanentDeleteBase({
             baseId: resourceId,
